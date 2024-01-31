@@ -890,19 +890,40 @@ class Utils
 
 	/**
 	 * @param string $XMLstring
-	 *
+     * @param bool $allowExternal
+     *
 	 * @return array|false
 	 */
-	public static function XML2array($XMLstring) {
-		if (function_exists('simplexml_load_string') && function_exists('libxml_disable_entity_loader')) {
+    public static function XML2array($XMLstring, $allowExternal = true) {
+
+        if (function_exists('simplexml_load_string')) {
+            if ($allowExternal) {
+                $options = LIBXML_NOENT | LIBXML_NONET | LIBXML_NOWARNING | LIBXML_COMPACT;
+                // WARNING, for PHP 8.0+, you should use
+                // libxml_set_external_entity_loader()
+                // to load external entities with
+                // approptiate validation or make sure
+                // XML data does not contain XXE attacks.
+            } else {
+                $options = LIBXML_NONET | LIBXML_NOWARNING | LIBXML_COMPACT;
+            }
+            $disableLoader = function_exists('libxml_disable_entity_loader') && \PHP_VERSION_ID < 80000;
+
+            if ($disableLoader) {
 			// http://websec.io/2012/08/27/Preventing-XEE-in-PHP.html
 			// https://core.trac.wordpress.org/changeset/29378
 			// This function has been deprecated in PHP 8.0 because in libxml 2.9.0, external entity loading is
 			// disabled by default, but is still needed when LIBXML_NOENT is used.
-			$loader = @libxml_disable_entity_loader(true);
-			$XMLobject = simplexml_load_string($XMLstring, 'SimpleXMLElement', LIBXML_NOENT | LIBXML_NONET | LIBXML_NOWARNING | LIBXML_COMPACT);
-			$return = self::SimpleXMLelement2array($XMLobject);
-			@libxml_disable_entity_loader($loader);
+               $loader = @libxml_disable_entity_loader(true);
+            }
+
+            $XMLobject = simplexml_load_string($XMLstring, 'SimpleXMLElement', $options);
+
+            $return = self::SimpleXMLelement2array($XMLobject);
+            if ($disableLoader) {
+                @libxml_disable_entity_loader($loader);
+            }
+
 			return $return;
 		}
 		return false;
